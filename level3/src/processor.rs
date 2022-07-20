@@ -7,7 +7,7 @@ use solana_program::{
     pubkey::Pubkey,
     rent::Rent,
     system_instruction,
-    sysvar::Sysvar,
+    sysvar::Sysvar, msg,
 };
 
 use crate::{TipInstruction, TipPool, Vault, VAULT_LEN};
@@ -35,7 +35,7 @@ fn initialize(
     seed: u8,
     fee: f64,
     fee_recipient: Pubkey,
-) -> ProgramResult {
+) -> ProgramResult { // @audit create a vault
     let account_info_iter = &mut accounts.iter();
     let vault_info = next_account_info(account_info_iter)?;
     let initializer_info = next_account_info(account_info_iter)?;
@@ -137,7 +137,7 @@ fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
     let vault_info = next_account_info(account_info_iter)?;
     let pool_info = next_account_info(account_info_iter)?;
     let withdraw_authority_info = next_account_info(account_info_iter)?;
-    let mut pool = TipPool::deserialize(&mut &(*pool_info.data).borrow_mut()[..])?;
+    let mut pool = TipPool::deserialize(&mut &(*pool_info.data).borrow_mut()[..])?; //@audit no length validation inside
 
     assert_eq!(vault_info.owner, program_id);
     assert_eq!(pool_info.owner, program_id);
@@ -147,6 +147,7 @@ fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
     );
     assert_eq!(pool.vault, *vault_info.key);
     assert_eq!(*withdraw_authority_info.key, pool.withdraw_authority);
+    msg!("pool.value is {}", pool.value);
 
     pool.value = match pool.value.checked_sub(amount) {
         Some(v) => v,

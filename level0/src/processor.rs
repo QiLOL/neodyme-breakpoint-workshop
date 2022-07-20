@@ -26,14 +26,14 @@ pub fn process_instruction(
 
 fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
-    let wallet_info = next_account_info(account_info_iter)?;
-    let vault_info = next_account_info(account_info_iter)?;
+    let wallet_info = next_account_info(account_info_iter)?; // @audit wallet data information
+    let vault_info = next_account_info(account_info_iter)?; // @audit account holding lamports
     let authority_info = next_account_info(account_info_iter)?;
     let rent_info = next_account_info(account_info_iter)?;
     let (wallet_address, wallet_seed) =
         Pubkey::find_program_address(&[&authority_info.key.to_bytes()], program_id);
     let (vault_address, vault_seed) = Pubkey::find_program_address(
-        &[&authority_info.key.to_bytes(), &"VAULT".as_bytes()],
+        &[&authority_info.key.to_bytes(), &"VAULT".as_bytes()], 
         program_id,
     );
 
@@ -88,7 +88,7 @@ fn deposit(_program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
     let vault_info = next_account_info(account_info_iter)?;
     let source_info = next_account_info(account_info_iter)?;
     let wallet = Wallet::deserialize(&mut &(*wallet_info.data).borrow_mut()[..])?;
-
+    //@audit missing signer validation
     assert_eq!(wallet.vault, *vault_info.key);
 
     invoke(
@@ -110,6 +110,11 @@ fn withdraw(_program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Prog
     assert!(authority_info.is_signer);
     assert_eq!(wallet.authority, *authority_info.key);
     assert_eq!(wallet.vault, *vault_info.key);
+
+    // @audit lack of PDA validation/owner validation for the given vault
+    // 1. is the wallet owned by the authority?
+    // 2. is the wallet owned by the program?
+    // 3. is the vault link to the wallet?
 
     if amount > **vault_info.lamports.borrow_mut() {
         return Err(ProgramError::InsufficientFunds);

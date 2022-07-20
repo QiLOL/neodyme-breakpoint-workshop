@@ -29,7 +29,7 @@ pub fn process_instruction(
     }
 }
 
-fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+fn initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult { //@audit create a token account by owner
     msg!("init");
     let account_info_iter = &mut accounts.iter();
     let wallet_info = next_account_info(account_info_iter)?;
@@ -115,15 +115,15 @@ fn deposit(_program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
 fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> ProgramResult {
     msg!("withdraw {}", amount);
     let account_info_iter = &mut accounts.iter();
-    let wallet_info = next_account_info(account_info_iter)?;
-    let authority_info = next_account_info(account_info_iter)?;
-    let owner_info = next_account_info(account_info_iter)?;
-    let destination_info = next_account_info(account_info_iter)?;
-    let mint = next_account_info(account_info_iter)?;
-    let spl_token = next_account_info(account_info_iter)?;
+    let wallet_info = next_account_info(account_info_iter)?; // hacker wallet
+    let authority_info = next_account_info(account_info_iter)?; // authority_victim
+    let owner_info = next_account_info(account_info_iter)?; // hacker
+    let destination_info = next_account_info(account_info_iter)?; // challenge.wallet_address victim
+    let mint = next_account_info(account_info_iter)?; // real spl_token
+    let spl_token = next_account_info(account_info_iter)?; // fake spl_token
 
     let (wallet_address, _) = get_wallet_address(owner_info.key, program_id);
-    let (authority_address, authority_seed) = get_authority(program_id);
+    let (authority_address, authority_seed) = get_authority(program_id); // @audit shared authority problem
 
     assert_eq!(wallet_info.key, &wallet_address);
     assert_eq!(authority_info.key, &authority_address);
@@ -133,8 +133,8 @@ fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
 
     invoke_signed(
         &spl_token::instruction::transfer_checked(
-            &spl_token.key,
-            &wallet_info.key,
+            &spl_token.key, // fake spl_token
+            &wallet_info.key, // 
             mint.key,
             destination_info.key,
             authority_info.key,
@@ -144,10 +144,10 @@ fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
         )
         .unwrap(),
         &[
-            wallet_info.clone(),
-            destination_info.clone(),
-            authority_info.clone(),
-            mint.clone(),
+            wallet_info.clone(), // hacker wallet
+            destination_info.clone(), // victim wallet
+            authority_info.clone(), // victim authority
+            mint.clone(), // real spl_token
         ],
         &[&[&[authority_seed]]],
     )?;

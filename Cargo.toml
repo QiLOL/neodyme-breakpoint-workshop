@@ -7,3 +7,6 @@ members = [
     "pocs",
     "level4-poc-contract"
 ]
+
+[profile.release]
+overflow-checks = true

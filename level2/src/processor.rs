@@ -94,9 +94,12 @@ fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
     assert!(authority_info.is_signer, "authority must sign!");
 
     let min_balance = rent.minimum_balance(WALLET_LEN as usize);
-    if min_balance + amount > **wallet_info.lamports.borrow_mut() {
+    if min_balance + amount > **wallet_info.lamports.borrow_mut() { // @audit to bypass this we need 
         return Err(ProgramError::InsufficientFunds);
     }
+    msg!("Actual withdraw {} - {} - {}", min_balance + amount, amount, min_balance );
+    msg!("wallet_info {:?}", **wallet_info.lamports.borrow() - amount);
+    msg!("destination_info {:?}", **destination_info.lamports.borrow() - amount);
 
     **wallet_info.lamports.borrow_mut() -= amount;
     **destination_info.lamports.borrow_mut() += amount;

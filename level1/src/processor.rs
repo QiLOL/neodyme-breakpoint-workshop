@@ -88,6 +88,8 @@ fn withdraw(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progr
 
     assert_eq!(wallet_info.owner, program_id);
     assert_eq!(wallet.authority, *authority_info.key);
+    //@audit the current program shows the wallet account is valid(owned by the program)
+    // but anyone can call this program?? - missing signer validation
 
     if amount > **wallet_info.lamports.borrow_mut() {
         return Err(ProgramError::InsufficientFunds);

