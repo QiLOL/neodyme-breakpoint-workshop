@@ -12,6 +12,7 @@ level1 = { path = "../level1", features = ["no-entrypoint"] }
 level2 = { path = "../level2", features = ["no-entrypoint"] }
 level3 = { path = "../level3", features = ["no-entrypoint"] }
 level4 = { path = "../level4", features = ["no-entrypoint"] }
+ctf-solana-farm = { path = "../ctf", features = ["no-entrypoint"] }
 
 solana-program = "1.11.2"
 borsh = "0.9.1"

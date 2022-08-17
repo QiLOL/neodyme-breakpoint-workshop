@@ -16,7 +16,7 @@ pub fn process_instruction(
             let source = &accounts[0];
             let mint = &accounts[1];
             let destination = &accounts[2];
-            let authority = &accounts[3]; // order followed with `transfer_checked`
+            let authority = &accounts[3]; // order followed with `transfer_checked` 
             invoke(
                 &spl_token::instruction::transfer(
                     mint.key,

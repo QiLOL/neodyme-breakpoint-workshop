@@ -5,7 +5,9 @@ members = [
     "level2",
     "level3",
     "pocs",
-    "level4-poc-contract"
+    "level4-poc-contract",
+    "ctf",
+    "ctf-poc-contract"
 ]
 
 [profile.release]
